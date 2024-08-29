@@ -3,6 +3,7 @@ title: D3D12_learning_notes
 date: 2023-10-18 11:47:10
 tags:
 mathjax : true
+description: My learning path of D3D12, aim to develop my own engine.
 ---
 
 
@@ -12,7 +13,7 @@ Describe the process of drawing a triangle, something similar to printf("Hello W
 
 ## step 1: vertex and input layout
 
-1. First thing is create a custom vertex structure.
+1. First thing is to create a custom vertex structure.
 ```C++
 struct Vertex
 {
@@ -48,6 +49,14 @@ UINT InstanceDataStepRate;
 } D3D12_INPUT_ELEMENT_DESC;
 ```
 Below is each parameters' description:
+* SemanticName: Name of current component, which is used to map elements in vertex shader input signature. A example below: 
+* SemanticIndex: Index of Semantic, ep Pos is become POSITION0.
+* Format: The format of the component, because XMFLOAT3 is still not enough detailed.
+* InputSlot: Totally 12 slot, leave it later to learn.
+* AlignedByteOffset: Size of float: 4 bytes, so offset is 3 x 4 = 12.
+* InputSlotClass: default right now : `InputSlotClass`.
+
+Whole process:
 ```C++
 struct Vertex
 {
@@ -72,12 +81,7 @@ float3 iNormal : NORMAL,
 float2 iTex0 : TEXCOORD0,
 float2 iTex1 : TEXCOORD1)
 ```
-* SemanticName: Name of current component, which is used to map elements in vertex shader input signature. A example below: 
-* SemanticIndex: Index of Semantic, ep Pos is become POSITION0.
-* Format: The format of the component, because XMFLOAT3 is still not enough detailed.
-* InputSlot: Totally 12 slot, leave it later to learn.
-* AlignedByteOffset: Size of float: 4 bytes, so offset is 3 x 4 = 12.
-* InputSlotClass: default right now : `InputSlotClass`.
+
 
 ## step 2: vertex buffer
 
@@ -190,7 +194,8 @@ mCommandList.Get(), vertices, vbByteSize, VertexBufferUploader);
 
 ### bind the buffer to pipeline
 
-1. We need a `vertex buffer view` to vertex buffer resource.
+1. We need a `vertex buffer view` to find the vertex buffer resource.
+In my understanding, this is something like pointer, used for us to find the position and size of vertex buffer when we need.
 ```C++
 typedef struct D3D12_VERTEX_BUFFER_VIEW
 {
@@ -203,8 +208,52 @@ UINT StrideInBytes;
 * SizeInBytes: The number of bytes to view in the vertex buffer starting from `BufferLocation`.
 * StrideInBytes: The size of each vertex in bytes.
 
-2. After create vertex buffer and view, we need to combine them.
+2. After create vertex buffer and view, use function below to process the whole steps.
 
+```C++
+void ID3D12GraphicsCommandList::IASetVertexBuffers(
+UINT StartSlot,
+UINT NumBuffers,
+const D3D12_VERTEX_BUFFER_VIEW *pViews);
+```
+
+3. The step below does not mean we already draw them , just put the resource to the target slot, `DrawInstance` is the function to the draw step.
+```C++
+void ID3D12CommandList::DrawInstanced(
+UINT VertexCountPerInstance,
+UINT InstanceCount,
+UINT StartVertexLocation,
+UINT StartInstanceLocation);
+```
+
+## step 3: constant buffer
+
+It's a type of GPU resource: `ID3D12Resource`
+
+
+```C++
+cbuffer cbPerObject : register(b0)
+{
+float4x4 gWorldViewProj;
+};
+```
+
+```C++
+struct ObjectConstants
+{
+DirectX::XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
+};
+UINT elementByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(Objec
+tConstants));
+ComPtr<ID3D12Resource> mUploadCBuffer;
+device->CreateCommittedResource(
+&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+D3D12_HEAP_FLAG_NONE,
+&CD3DX12_RESOURCE_DESC::Buffer(mElementByteSize * NumElements),
+D3D12_RESOURCE_STATE_GENERIC_READ,
+nullptr,
+IID_PPV_ARGS(&mUploadCBuffer));
+```
 
 
 
@@ -451,8 +500,18 @@ must more than 2 if using flip ppresentation model.
 
 
 ## Render Target View(RTV):
+After several months, now my understanding of RTV is: 
+
 The purpose of it is just tell GPU how to render at back buffer before swap. If without RTV, the GPU will not know where the rendered pixel should be sent.
-![](D3D12-learning-notes/5.png)
+<div style="display: flex; justify-content: center; align-items: center;">
+  <img src="D3D12-learning-notes/5.png" title="A regular image" width="300" height="300">
+</div>
+
+
+## Root signatures
+It describe constant, CBV(constant buffer view), SRV, UAV, Sample,etc.. store in register rools.
+
+
 # glossary of CG
 
 * mipmap: a set of pictures, with different level of pixels. Becasue off-site viewing do not need that detailed.

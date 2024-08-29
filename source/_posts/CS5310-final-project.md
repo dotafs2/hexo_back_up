@@ -4,7 +4,7 @@ date: 2024-07-23 16:38:36
 tags:
 math: true
 index_img: cover2.gif
-description: Developed a custom renderer entirely from scratch by C, manual implementations of various key features such as PBF. This work is inspired by Bruce A. Maxwell's CS5300 course.
+description: Writing an offline renderer from scratch in C, eventually implementing PBF (position based fluids).
 ---
 
 # Overall
@@ -28,7 +28,6 @@ First, I changed the order of green and red to try to output only the leaves, bu
 2. Use a method similar to shadow mapping’s Percentage-Closer Filtering (PCF), which reduces noise by
 sampling a circle of surrounding kernels to compute weights when each point is sampled.
 I can do this change in the last section, so leave this method right here.
-
 
 <div style="display: flex; justify-content: center; align-items: center;">
   <img src="1_1.jpg" title="Brief output of green leaves" width="300px" height="300px">
