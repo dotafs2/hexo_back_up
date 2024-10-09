@@ -1,5 +1,5 @@
 ---
-title: Enhance and Expanding a Realistic Cloth Rendering Model
+title: Realistic Cloth Rendering by Mitsuba3
 date: 2023-6-20 19:14:08
 tags:
 index_img: cover1.jpeg

@@ -1,19 +1,37 @@
 ---
-title: CS5310_final_project
+title: Custom Renderer from Sketch by C
 date: 2024-07-23 16:38:36
 tags:
 math: true
 index_img: cover2.gif
-description: Writing an offline renderer from scratch in C, eventually implementing PBF (position based fluids).
+description: Writing an offline renderer from scratch in C, eventually implementing PBF (position based fluids). Based on Burce Maxwell CS5300 leture.
 ---
 
-# Overall
+# Overview
 
+
+Here is a rendering engine that I have completely hand-written in C. Everything is implemented manually by me, from matrix addition and subtraction, memory allocation, rasterization, z-buffer, alpha test, shadow methods, Phong shading, particle systems, importing materials, importing OBJ files, Water Simulation, etc.. 
+
+## Water Surface Simulation
 
 ![Water surface simluation + Rainfall](CS5310-final-project/15_2.gif)
 
+* Phong Shading.
+* Multiple cosine waves are used to simulate the water surface.
+* A grayscale texture is calculated for alpha testing.
+* dynamic particles are simulated to represent water droplets.
+
+## Phyical Based Water Simulation
+
+
+
 ![PBD by distance constriant](CS5310-final-project/15_9.gif)
 
+
+Based on this paper to simulate water : [Position Based Fluids](https://mmacklin.com/pbf_sig_preprint.pdf).
+
+
+![1000 particles with PBF](CS5310-final-project/15_13.gif)
 
 # 1. Image
 

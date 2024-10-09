@@ -1,6 +1,6 @@
 ---
-title: D3D12_learning_notes
-date: 2023-10-18 11:47:10
+title: D3D12 Learning Notes
+date: 2023-3-18 11:47:10
 tags:
 mathjax : true
 description: My learning path of D3D12, aim to develop my own engine.
@@ -10,6 +10,27 @@ description: My learning path of D3D12, aim to develop my own engine.
 
 # Hello World
 Describe the process of drawing a triangle, something similar to printf("Hello World!") in D3D.
+
+## overview
+
+### step1: 初始化descriptor heap
+descriptor是一个GPU资源(纹理，缓冲区，采样器)的描述。  
+
+Descriptor Heap: 创建描述符堆，descriptor heap可以有很多个，每一个都是一个连续的内存块，存放着多个descriptor。  
+
+主要有三种heap:
+
+1. CBV/SRV/UAV: constant buffer， shader resource, 无序访问视图。这些view都是GPU可见的，也被叫做descriptor table，可以绑定到root signature中。对于经常变化的小资源比如世界矩阵就放到constant buffer，对于别的资源就放到SRV。
+2. Sampler Descriptor Heap: 在着色器中执行纹理采样的，也是GPU可见的。
+3. RTV/DSV 描述符堆（Render Target View / Depth Stencil View Descriptor Heap）: 设置渲染目标和深度缓冲区。CPU可见，不需要绑定到descirptor table中。
+
+### step2: constant buffer
+1. 上传到upload buffer，不用到default buffer
+2. 
+
+### drawcall:
+
+
 
 ## step 1: vertex and input layout
 
@@ -525,3 +546,4 @@ It describe constant, CBV(constant buffer view), SRV, UAV, Sample,etc.. store in
 * Resource: all the resource could be excuted by GPU is resource in D3D12. Which is 'ID3D12Resource', such as rendering targets(include back buffers), textures, vertex buffers, index buffers... 
 * G-SYNC: refresh screen and graph card together.
 * Window Advanced Rasterization Platform(WARP): If did not find a valiable GPU, the system will do the same step of D3D12 by CPU by WARP. It can instead all the rendering method such as rasterization, ray tracing...
+
