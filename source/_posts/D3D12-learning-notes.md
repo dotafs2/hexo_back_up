@@ -3,9 +3,18 @@ title: D3D12 Learning Notes
 date: 2023-3-18 11:47:10
 tags:
 mathjax : true
+index_img: cover6.png
 description: My learning path of D3D12, aim to develop my own engine.
 ---
 
+
+---电脑进水了，这个文档也全部丢了好心疼，只有最开始写的几行了---
+
+my temp summrize of my understanding below
+
+
+
+![](D3D12-learning-notes/7.png)
 
 
 # Hello World
@@ -26,7 +35,6 @@ Descriptor Heap: 创建描述符堆，descriptor heap可以有很多个，每一
 
 ### step2: constant buffer
 1. 上传到upload buffer，不用到default buffer
-2. 
 
 ### drawcall:
 

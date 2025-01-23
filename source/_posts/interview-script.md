@@ -1,14 +1,198 @@
 ---
-title: interview script
+title: my general notes 
 date: 2022-09-06 17:44:16
 tags:
 ---
 
+# 有感
+
+最开始学图形，全学的概念，可以见我2022年的笔记在dotafs.com，现在回想起来觉得曼大图形学的课程不是很适合我，过多的高级理念比如LOD，快速傅立叶模拟水等，并没有任何代码和实操，让我其实很多概念都浮于理解，最开始我对图形的认知其实全是源自于论文中的brdf，bsdf，bsss...sssdf，里面的各个参数我只知道公式写的是啥，完全不理解，只是浮于点对点的定义，跟背公式没啥区别，无法理解。之后自学opengl，d3d12也觉得只是在模仿别人的代码，但具体为啥这么实现完全不懂。最重要的转折点就是在neu遇到的Bruce，他的课让我图形学直接学习进度快了n倍。在他的课上用c手搓了一个单线程的rendering pipeline，我自己又加入了qt和一些siggraph论文在里面，这个项目让我彻底理解了为啥要有pso啊，各种测试,各种模版，为啥phong shading要这么着色，为啥阴影要这么计算等等，当点对点的知识点在我脑海中全部联系到了一起变成了一个引擎，这种感觉极其美妙并且让我真正的理解了图形，千言万语都没法解释我对他的感激，完全是闲来无事在暑假选课恰好他的课开，我原本抱着水课的态度学图形，没想到学到了如此之多的干货，真的不胜感激。之后再回来学d3d发现一切都快了很多，终于理解了为什么需要有各种嘈杂的概念，有些是为了多线程加速的trick，有的是图形学简化流程的步骤等等，感觉如果我没有手搓c引擎，永远也不会理解什么是图形，也永远不会入门，虽然学习过程中没有人指导我自己各种碰壁浪费了n多的时间，但之前实习的时候leader和我说中间遇到的这些困难只要我在做就不算浪费时间。我想也是，这些终究都是我我成长学习的一部分，继续加油。
+
+-------------- 之前电脑进水了，mac没法数据恢复，这页面所有的markdown都是本地hard push上去的，于是我丢失了我所有的笔记，html强扭markdown勉强保留了一些内容------
+
+
+# 我的临阵磨枪总结
+
+## 一些公式
+
+### 1. PBR 
+#### GGX 分布函数
+GGX 分布函数主要用于控制表面的微观粗糙度，高光形状如下：
+
+$$
+D_{GGX}(N, H) = \frac{\alpha^2}{\pi ((N \cdot H)^2 (\alpha^2 - 1) + 1)^2}
+$$
+
+其中：
+- $ N $ 是表面法线。
+- $ H $ 是半程向量（光源方向与视线方向的中间向量）。
+- $ \alpha $ 是粗糙度参数。
+
+ggx比phong复杂度更高
+
+* 切比雪夫多项式
+切比雪夫多项式，一种逼近方法，适用于特定区间（通常是 $ [-1, 1] $）的逼近。切比雪夫多项式 $ T_n(x) $ 是一组正交多项式，定义为
+
+#### Phong 分布函数
+Phong 分布函数使用一个指数 $ n $ 来控制光滑度。公式如下：
+
+$$
+D_{Phong}(N, H) = \frac{n + 2}{2\pi} (N \cdot H)^n
+$$
+
+其中：
+- $ n $ 是高光反射指数，数值越高表示表面越光滑。
+
+#### Blinn-Phong
+
+Blinn-Phong氏光照模型是对Phong氏光照模型的改进，Phong模型在处理高光时会出现光照不连续的情况。当光源和视点位于同一个方向时，反射光线跟观察方向可能大于90度，反射光线的分量就被消除了，所以出现高光不连续的现象。Blinn-Phong模型在处理镜面反射时不使用观察方向和反射光线的夹角来计算，而是引入了一个新的向量：半程向量(Halfway vector)。半程向量其实很简单，就是入射光线向量L和观察方向V的中间位置（角平分线）。Blinn-Phong求高光亮度的时候使用半程向量和法向量的点积来决定高光亮度。Phong是用反射光线和视线向量的点积来求高光亮度。
+
+#### Cook-Torrance BRDF
+Cook-Torrance 是一个完整的BRDF模型，包含分布函数 $ D $、菲涅耳项 $ F $、几何遮挡项 $ G $。公式如下：
+
+$$
+f_r(L, V) = \frac{D(H) \cdot F(V, H) \cdot G(L, V, H)}{4(N \cdot L)(N \cdot V)}
+$$
+
+其中：
+- $ L $ 是光源方向。
+- $ V $ 是视线方向。
+- $ N $ 是表面法线。
+- $ H $ 是半程向量（光源方向与视线方向的中间向量）。
+- $ D $ 是表面分布函数，例如可以使用 GGX 或 Phong 分布。
+- $ F $ 是菲涅耳项，通常使用 Schlick 近似公式。
+- $ G $ 是几何遮挡项，用于表示光线在微表面上的遮挡。
+
+
+#### toon shader
+
+漫反射（Diffuse Shading）：通过法向量和光源方向的点积: $N \cdot L$ 来计算漫反射强度，然后使用 smoothstep 函数分段化这个值，使漫反射区域形成阶梯效果，不同亮度区间表现为不同颜色。
+
+镜面高光（Specular Shading）：利用法向量和半向量的点积： $N \cdot H$ 并应用 smoothstep 阶梯化高光强度，控制光滑度，产生离散的镜面反射效果，符合卡通风格。
+
+边缘光（Rim Lighting）：通过视角方向和法向量的点积计算边缘亮度，将高亮区域集中在物体轮廓，用 pow 和 smoothstep 调整边缘光的强度，使物体轮廓清晰、突出。
+
+```C++
+// 漫反射
+float3 normal = normalize(i.worldNormal);
+float NdotL = dot(_WorldSpaceLightPos0, normal);
+
+
+// 镜面高光计算
+float3 viewDir = normalize(i.viewDir);
+float3 halfVector = normalize(_WorldSpaceLightPos0 + viewDir);
+float NdotH = dot(normal, halfVector);
+
+//
+float4 rimDot = 1 - dot(viewDir, normal);
+float rimIntensity = rimDot * pow(NdotL, _RimThreshold);
+rimIntensity = smoothstep(_RimAmount - 0.01, _RimAmount + 0.01, rimIntensity);
+float4 rim = rimIntensity * _RimColor;
+
+```
+### 2. render equation
+
+$$
+L_o(p, \omega_o) = L_e(p, \omega_o) + \int_{\Omega} f_r(p, \omega_i, \omega_o) L_i(p, \omega_i) (n \cdot \omega_i) d\omega_i
+$$
+
+- $L_o(p, \omega_o)$：点 $p$处沿视角方向 $\omega_o$的出射辐射亮度。
+- $L_e(p, \omega_o)$：自发光项，表示点 $p$自身向方向 $\omega_o$发射的光。
+- $f_r(p, \omega_i, \omega_o)$：BRDF（双向反射分布函数），描述光从入射方向 $\omega_i$到出射方向 $\omega_o$的反射行为。
+- $L_i(p, \omega_i)$：点 $p$处从入射方向 $\omega_i$到达的入射辐射亮度。
+- $n$：表面法线。
+- $\omega_i$：入射方向。
+- $d\omega_i$：微分立体角，用于积分。
+
+### 3. 辐射度量学
+
+   1. **辐射通量 (Radiant Flux)**
+
+$$
+    \Phi = \int_S \int_{\Omega} L(p, \omega) \, (n \cdot \omega) \, d\omega \, dA 
+$$
+
+- $\Phi $：辐射通量，表示在单位时间内通过某一表面的总能量（单位：瓦特）。
+- $L(p, \omega) $：在点 \( p \) 处沿方向 \( \omega \) 的辐射亮度。
+- $n $：表面法线。
+- $d\omega $：微分立体角。
+- $dA $：微分面积。
+
+2. **辐射亮度 (Radiance)**
+
+$$
+    L = \frac{d^2 \Phi}{dA \cdot d\omega \cdot \cos\theta}
+$$
+
+- $L $：辐射亮度，描述单位面积、单位立体角方向上的辐射强度。
+- $d^2 \Phi $：微分辐射通量。
+- $dA $：微分面积。
+- $d\omega $：微分立体角。
+- $\cos\theta $：入射角的余弦值，用于调整角度对亮度的影响。
+
+3. **辐照度 (Irradiance)**
+
+    $$
+    E = \frac{d\Phi}{dA}
+    $$
+
+- $E $：辐照度，单位面积上接收到的辐射能量密度。
+- $d\Phi $：微分辐射通量。
+- $dA $：微分面积。
+
+
+## 零散概念
+
+1. 裁剪->Alpha->模板->深度
+2. 各向同性（Isotropic）：指的是纹理在所有方向上都均匀采样的方式。简单的双线性（Bilinear）或三线性（Trilinear）滤波就属于各向同性滤波方式，它们在各个方向上的采样密度相同，但这种方式在斜向观看时会导致纹理细节丢失。
+各向异性（Anisotropic）：顾名思义，它在不同方向上采取不同的采样密度。对于视角倾斜的表面，各向异性滤波会在与视线垂直的方向上增加采样密度，保持纹理的清晰度。
+
+### 描边
+1. 后处理描边（Screen-Space Outline）   
+概念：后处理描边是在场景渲染完成后，在屏幕空间（Screen-Space）中对图像进行处理。该方法通过深度缓冲和法线缓冲的差异来检测物体的边缘。   
+实现方式：   
+渲染场景时保存每个像素的深度值和法线信息。   
+通过检测邻近像素的深度值和法线方向差异来确定边缘位置。   
+在边缘处绘制描边颜色。   
+优点：适用于复杂场景，不受几何体的复杂程度影响，且不需多次绘制。   
+
+2. Sobel 边缘检测  
+概念：Sobel 边缘检测是一种图像处理方法，常用于图像后处理阶段。通过计算图像的梯度来检测边缘。
+实现方式：  
+渲染场景并生成深度和法线缓冲。  
+在后处理阶段应用 Sobel 算子计算梯度，检测图像中的边缘。  
+将边缘像素绘制成描边颜色。  
+优点：适用于动态场景，能够检测图像中的边缘信息。  
+缺点：对场景的深度和法线依赖较大，有可能产生伪边缘。  
+### 贝塞尔曲线
+1. 一阶贝塞尔曲线（线性贝塞尔曲线）
+$$
+B(t) = (1 - t) P_0 + t P_1
+$$
+
+2. 二阶贝塞尔曲线（抛物线）
+$$
+B(t) = (1 - t)^2 P_0 + 2(1 - t)t P_1 + t^2 P_2
+$$
+
+3. 三阶贝塞尔曲线（立方曲线）
+$$
+B(t) = (1 - t)^3 P_0 + 3(1 - t)^2 t P_1 + 3(1 - t)t^2 P_2 + t^3 P_3
+$$
+
+其中，$t \in [0, 1]$ 表示参数，$P_0, P_1, P_2, P_3$ 为控制点。
+
+4.一般公式（n阶贝塞尔曲线）
+$$
+B(t) = \sum_{i=0}^{n} \binom{n}{i} (1 - t)^{n - i} t^i P_i
+$$
+
+其中，$\binom{n}{i}$ 是二项式系数。
+
+
+
+
 # graphic pipeline 
-
-
-
--------------- 之前写的好乱，重写一遍 ------------
 
 **渲染管线概述**
 
@@ -98,6 +282,124 @@ tags:
 - 后期处理可以极大地增强视觉效果，但也需要权衡性能。
 
 ---
+
+## unity 相关
+
+### GPU Instance
+
+GPU 实例化则是通过让 GPU 接受一组相同的几何和材质数据，但可以用不同的变换矩阵或其他参数来区分每个实例。这样，CPU 只需一次提交，GPU 可以在一次 draw call 中渲染多个实例。
+* Automatic Instancing: unity自动搞。
+* ComputeBuffer 和 Shader Instancing：对于更复杂的实例化需求，可以使用 ComputeBuffer 和 Shader 中的实例化技术。这种方法需要在 Shader 中编写实例化的逻辑，并用 ComputeBuffer 存储实例的变换矩阵、颜色等信息，然后在 Shader 中读取和应用这些数据。这种方法适合需要动态改变实例参数的场景，比如实现不同的动画效果。
+
+
+
+## 头发和皮肤
+
+
+皮肤渲染通常使用 Subsurface Scattering (SSS) 技术，以模拟光在皮肤下层的散射，从而产生自然的肤色和细腻的质感。常用的模型包括 Blinn-Phong 和 Lambertian 反射模型，配合纹理贴图增强细节。
+
+头发渲染则涉及到光线与发丝的交互，通常使用基于粒子的技术或光线追踪，以实现真实的光泽和透明效果。头发的材质通常用 Fresnel 方程来处理，确保在不同视角下反射光的变化，同时利用纹理和几何体模型来增加细节与复杂度。
+## 风
+
+6种不同类型的Motors
+
+* Directional 平行风 (类似unity WindZone里的Directional)  
+* Omni 全向风 （类似unity里的Spherial）  
+* Vortex 旋涡，沿某个轴产生风  
+* Moving 运动发动机，锥形，可以理解成发动机在运动，产生风场是锥形扩散的  
+* Cylinder 圆柱的上下面可以大小不一样  
+* Pressure 直接就是压强  
+
+优化GPU利用：通过分离计算风速的各个分量（X、Y、Z方向），使得每个方向的计算都能并行进行，减少了等待时间，并利用了GPU的并行计算优势。
+
+
+## LOD的类型
+* 离散LOD：最常见的LOD类型，使用明确分隔的几个模型级别。
+* 连续LOD：使用算法在一个模型上动态增减细节，通常用于地形的渲染。
+* 屏幕空间LOD：基于对象在屏幕上占用的像素数量来决定其细节级别，适用于大型场景渲染。
+
+
+## C++ 一些我不看就忘的概念
+
+### single instance
+
+```C++
+///  内部静态变量的懒汉实现  //
+class Single
+{
+
+public:
+    // 获取单实例对象
+    static Single& GetInstance();
+	
+	// 打印实例地址
+    void Print();
+
+private:
+    // 禁止外部构造
+    Single();
+
+    // 禁止外部析构
+    ~Single();
+
+    // 禁止外部拷贝构造
+    Single(const Single &single) = delete;
+
+    // 禁止外部赋值操作
+    const Single &operator=(const Single &single) = delete;
+};
+Single& Single::GetInstance()
+{
+    /**
+     * 局部静态特性的方式实现单实例。
+     * 静态局部变量只在当前函数内有效，其他函数无法访问。
+     * 静态局部变量只在第一次被调用的时候初始化，也存储在静态存储区，生命周期从第一次被初始化起至程序结束止。
+     */
+    static Single single;
+    return single;
+}
+
+void Single::Print()
+{
+    std::cout << "我的实例内存地址是:" << this << std::endl;
+}
+
+Single::Single()
+{
+    std::cout << "构造函数" << std::endl;
+}
+
+Single::~Single()
+{
+    std::cout << "析构函数" << std::endl;
+}
+```
+
+
+### unity 管线
+ 内置渲染管线 (Built-in Render Pipeline)    
+特点：Unity 的传统渲染管线，易于使用，适合小型项目和快速开发。
+优点：简单直观，支持大部分Unity内置功能。
+缺点：灵活性有限，较难进行定制。
+
+2. 高清晰度渲染管线 (HDRP - High Definition Render Pipeline)
+特点：专为高端图形和高性能平台设计，提供先进的视觉效果。
+优点：支持物理基渲染（PBR）、实时光照、反射、体积光等高端特性。
+缺点：对硬件要求较高，不适合低端设备。
+3. 轻量级渲染管线 (LWRP - Lightweight Render Pipeline)
+特点：为移动平台和低端设备优化的渲染管线，性能优越。
+优点：易于设置和使用，提供高效的性能表现。
+缺点：视觉效果相对HDRP较弱，功能也有限。
+4. 通用渲染管线 (URP - Universal Render Pipeline)
+特点：继承了LWRP，适用于各种平台，包括移动、PC和主机。
+优点：灵活性高，易于优化，支持多种平台，同时保持较好的视觉效果。
+缺点：在某些高级特性上可能不如HDRP。
+选择建议
+项目需求：根据项目规模和目标平台选择适合的管线。
+硬件考虑：考虑目标用户的设备性能，选择适当的渲染管线以平衡画质和性能。
+开发经验：如果团队有较多的图形开发经验，可以考虑使用HDRP进行深度定制。
+
+
 
 
 ## PSO
@@ -329,6 +631,11 @@ Overall, topic can seperate to:
         1.  使用前向渲染处理透明物体：在使用延迟渲染处理场景的不透明部分后，再用前向渲染方式渲染透明物体。
     2.  混合延迟渲染：结合使用延迟和前向渲染技术，例如，将透明效果或特定的光照效果保留在前向渲染路径中处理。
 
+
+
+    渲染顺序问题：延迟渲染通常将几何信息渲染到几何缓冲区中，然后根据光照信息在合成阶段进行像素合成。然而，透明物体需要按照深度顺序进行渲染，即先渲染远处的物体再渲染近处的物体，以保证正确的透明效果。这种渲染顺序的要求与延迟渲染的工作方式不太相符，需要额外的处理来实现正确的透明效果。
+
+
     ## [#](#shadow) shadow
 
 *   Lightmap: 沿着光源方向 bake 一个物体，offline rendering, 把结果放在 texture map。缺点只能放 diffuse，没法放 specular。并且没法动态阴影。
@@ -433,29 +740,76 @@ Overall, topic can seperate to:
 
     ### [#](#mvp-矩阵公式推导) MVP 矩阵公式推导
 
-1.  **模型矩阵 (Model Matrix, M)**
-    模型矩阵将对象坐标变换到世界坐标系。假设对象有一个平移变换和一个旋转变换，模型矩阵可以表示为：
-    <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>M</mi><mo>=</mo><mi>T</mi><mo>⋅</mo><mi>R</mi></mrow><annotation encoding="application/x-tex">M = T \cdot R</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:.68333em;vertical-align:0"></span><span class="mord mathnormal" style="margin-right:.10903em">M</span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:.68333em;vertical-align:0"></span><span class="mord mathnormal" style="margin-right:.13889em">T</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.68333em;vertical-align:0"></span><span class="mord mathnormal" style="margin-right:.00773em">R</span></span></span></span></span>
-    其中 (T) 是平移矩阵，( R ) 是旋转矩阵。具体形式如下：
-    平移矩阵 (T):
-    <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>T</mi><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.15999999999999992em" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mi>x</mi></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mi>y</mi></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mi>z</mi></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow></mrow><annotation encoding="application/x-tex">T = \begin{bmatrix} 1 &amp; 0 &amp; 0 &amp; x \\ 0 &amp; 1 &amp; 0 &amp; y \\ 0 &amp; 0 &amp; 1 &amp; z \\ 0 &amp; 0 &amp; 0 &amp; 1 \end{bmatrix}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:.68333em;vertical-align:0"></span><span class="mord mathnormal" style="margin-right:.13889em">T</span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:4.80303em;vertical-align:-2.15003em"></span><span class="minner"><span class="mopen"><span class="delimsizing mult"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6529999999999996em"><span style="top:-1.6499900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎣</span></span></span><span style="top:-2.79999em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-3.3959900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-3.4119800000000002em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-4.653em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎡</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.15003em"><span></span></span></span></span></span></span><span class="mord"><span class="mtable"><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">1</span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">1</span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">1</span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord mathnormal">x</span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span></span></span><span class="mclose"><span class="delimsizing mult"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6529999999999996em"><span style="top:-1.6499900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎦</span></span></span><span style="top:-2.79999em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-3.3959900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-3.4119800000000002em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-4.653em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎤</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.15003em"><span></span></span></span></span></span></span></span></span></span></span></span>
-    旋转矩阵 (R)（例如绕 z 轴旋转）:
-    <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>R</mi><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.15999999999999992em" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mi>cos</mi><mo>⁡</mo><mi>θ</mi></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo>−</mo><mi>sin</mi><mo>⁡</mo><mi>θ</mi></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mi>sin</mi><mo>⁡</mo><mi>θ</mi></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mi>cos</mi><mo>⁡</mo><mi>θ</mi></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow></mrow><annotation encoding="application/x-tex">R = \begin{bmatrix} \cos \theta &amp; -\sin \theta &amp; 0 &amp; 0 \\ \sin \theta &amp; \cos \theta &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; 1 &amp; 0 \\ 0 &amp; 0 &amp; 0 &amp; 1 \end{bmatrix}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:.68333em;vertical-align:0"></span><span class="mord mathnormal" style="margin-right:.00773em">R</span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:4.80303em;vertical-align:-2.15003em"></span><span class="minner"><span class="mopen"><span class="delimsizing mult"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6529999999999996em"><span style="top:-1.6499900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎣</span></span></span><span style="top:-2.79999em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-3.3959900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-3.4119800000000002em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-4.653em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎡</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.15003em"><span></span></span></span></span></span></span><span class="mord"><span class="mtable"><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mop">cos</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mord mathnormal" style="margin-right:.02778em">θ</span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mop">sin</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mord mathnormal" style="margin-right:.02778em">θ</span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">−</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mop">sin</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mord mathnormal" style="margin-right:.02778em">θ</span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mop">cos</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mord mathnormal" style="margin-right:.02778em">θ</span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">1</span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span></span></span><span class="mclose"><span class="delimsizing mult"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6529999999999996em"><span style="top:-1.6499900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎦</span></span></span><span style="top:-2.79999em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-3.3959900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-3.4119800000000002em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-4.653em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎤</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.15003em"><span></span></span></span></span></span></span></span></span></span></span></span>
-2.  **视图矩阵 (View Matrix, V)**
-    视图矩阵将世界坐标变换到相机坐标系。假设相机位置为 (\mathbf {C} = (c_x, c_y, c_z) )，看向目标 ( \mathbf {T} = (t_x, t_y, t_z) )，相机的上向量为 ( \mathbf {U} = (u_x, u_y, u_z) )。
-    首先计算相机的三个基向量：
-    <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi mathvariant="bold">z</mi><mo>=</mo><mfrac><mrow><mi mathvariant="bold">C</mi><mo>−</mo><mi mathvariant="bold">T</mi></mrow><mrow><mi mathvariant="normal">∣</mi><mi mathvariant="bold">C</mi><mo>−</mo><mi mathvariant="bold">T</mi><mi mathvariant="normal">∣</mi></mrow></mfrac></mrow><annotation encoding="application/x-tex">\mathbf{z} = \frac{\mathbf{C} - \mathbf{T}}{|\mathbf{C} - \mathbf{T}|}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:.44444em;vertical-align:0"></span><span class="mord"><span class="mord mathbf">z</span></span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:2.29911em;vertical-align:-.936em"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.36311em"><span style="top:-2.314em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">∣</span><span class="mord"><span class="mord mathbf">C</span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathbf">T</span></span><span class="mord">∣</span></span></span><span style="top:-3.23em"><span class="pstrut" style="height:3em"></span><span class="frac-line" style="border-bottom-width:.04em"></span></span><span style="top:-3.677em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mord mathbf">C</span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathbf">T</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.936em"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span>
-    <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi mathvariant="bold">x</mi><mo>=</mo><mfrac><mrow><mi mathvariant="bold">U</mi><mo>×</mo><mi mathvariant="bold">z</mi></mrow><mrow><mi mathvariant="normal">∣</mi><mi mathvariant="bold">U</mi><mo>×</mo><mi mathvariant="bold">z</mi><mi mathvariant="normal">∣</mi></mrow></mfrac></mrow><annotation encoding="application/x-tex">\mathbf{x} = \frac{\mathbf{U} \times \mathbf{z}}{|\mathbf{U} \times \mathbf{z}|}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:.44444em;vertical-align:0"></span><span class="mord"><span class="mord mathbf">x</span></span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:2.29911em;vertical-align:-.936em"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.36311em"><span style="top:-2.314em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">∣</span><span class="mord"><span class="mord mathbf">U</span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">×</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathbf">z</span></span><span class="mord">∣</span></span></span><span style="top:-3.23em"><span class="pstrut" style="height:3em"></span><span class="frac-line" style="border-bottom-width:.04em"></span></span><span style="top:-3.677em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mord mathbf">U</span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">×</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathbf">z</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.936em"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span>
-    <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi mathvariant="bold">y</mi><mo>=</mo><mi mathvariant="bold">z</mi><mo>×</mo><mi mathvariant="bold">x</mi></mrow><annotation encoding="application/x-tex">\mathbf{y} = \mathbf{z} \times \mathbf{x}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:.63888em;vertical-align:-.19444em"></span><span class="mord"><span class="mord mathbf" style="margin-right:.01597em">y</span></span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:.66666em;vertical-align:-.08333em"></span><span class="mord"><span class="mord mathbf">z</span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">×</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.44444em;vertical-align:0"></span><span class="mord"><span class="mord mathbf">x</span></span></span></span></span></span>
-    视图矩阵 (V):
-    <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>V</mi><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.15999999999999992em" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><msub><mi>x</mi><mi>x</mi></msub></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><msub><mi>x</mi><mi>y</mi></msub></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><msub><mi>x</mi><mi>z</mi></msub></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo>−</mo><mo stretchy="false">(</mo><mi mathvariant="bold">x</mi><mo>⋅</mo><mi mathvariant="bold">C</mi><mo stretchy="false">)</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><msub><mi>y</mi><mi>x</mi></msub></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><msub><mi>y</mi><mi>y</mi></msub></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><msub><mi>y</mi><mi>z</mi></msub></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo>−</mo><mo stretchy="false">(</mo><mi mathvariant="bold">y</mi><mo>⋅</mo><mi mathvariant="bold">C</mi><mo stretchy="false">)</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><msub><mi>z</mi><mi>x</mi></msub></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><msub><mi>z</mi><mi>y</mi></msub></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><msub><mi>z</mi><mi>z</mi></msub></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo>−</mo><mo stretchy="false">(</mo><mi mathvariant="bold">z</mi><mo>⋅</mo><mi mathvariant="bold">C</mi><mo stretchy="false">)</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow></mrow><annotation encoding="application/x-tex">V = \begin{bmatrix} x_x &amp; x_y &amp; x_z &amp; -(\mathbf{x} \cdot \mathbf{C}) \\ y_x &amp; y_y &amp; y_z &amp; -(\mathbf{y} \cdot \mathbf{C}) \\ z_x &amp; z_y &amp; z_z &amp; -(\mathbf{z} \cdot \mathbf{C}) \\ 0 &amp; 0 &amp; 0 &amp; 1 \end{bmatrix}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:.68333em;vertical-align:0"></span><span class="mord mathnormal" style="margin-right:.22222em">V</span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:4.80303em;vertical-align:-2.15003em"></span><span class="minner"><span class="mopen"><span class="delimsizing mult"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6529999999999996em"><span style="top:-1.6499900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎣</span></span></span><span style="top:-2.79999em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-3.3959900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-3.4119800000000002em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-4.653em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎡</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.15003em"><span></span></span></span></span></span></span><span class="mord"><span class="mtable"><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.151392em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">x</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.151392em"><span style="top:-2.5500000000000003em;margin-left:-.03588em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">x</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.151392em"><span style="top:-2.5500000000000003em;margin-left:-.04398em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">x</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.15139200000000003em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:.03588em">y</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.286108em"><span></span></span></span></span></span></span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.15139200000000003em"><span style="top:-2.5500000000000003em;margin-left:-.03588em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:.03588em">y</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.286108em"><span></span></span></span></span></span></span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.15139200000000003em"><span style="top:-2.5500000000000003em;margin-left:-.04398em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:.03588em">y</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.286108em"><span></span></span></span></span></span></span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.151392em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:.04398em">z</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.151392em"><span style="top:-2.5500000000000003em;margin-left:-.03588em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:.04398em">z</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.151392em"><span style="top:-2.5500000000000003em;margin-left:-.04398em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:.04398em">z</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6500000000000004em"><span style="top:-4.8100000000000005em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">−</span><span class="mopen">(</span><span class="mord"><span class="mord mathbf">x</span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathbf">C</span></span><span class="mclose">)</span></span></span><span style="top:-3.61em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">−</span><span class="mopen">(</span><span class="mord"><span class="mord mathbf" style="margin-right:.01597em">y</span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathbf">C</span></span><span class="mclose">)</span></span></span><span style="top:-2.4099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">−</span><span class="mopen">(</span><span class="mord"><span class="mord mathbf">z</span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathbf">C</span></span><span class="mclose">)</span></span></span><span style="top:-1.2099999999999997em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.1500000000000004em"><span></span></span></span></span></span></span></span><span class="mclose"><span class="delimsizing mult"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.6529999999999996em"><span style="top:-1.6499900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎦</span></span></span><span style="top:-2.79999em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-3.3959900000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-3.4119800000000002em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-4.653em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎤</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.15003em"><span></span></span></span></span></span></span></span></span></span></span></span>
-3.  **投影矩阵 (Projection Matrix, P)**
-    投影矩阵将相机坐标系变换到裁剪坐标系。以透视投影为例，设视锥体的参数为近剪裁面 (n)，远剪裁面 ( f )，视角 ( \theta )，宽高比 ( a )。
-    透视投影矩阵 (P):
-    <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>P</mi><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.15999999999999992em" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mfrac><mn>1</mn><mrow><mi>a</mi><mi>tan</mi><mo>⁡</mo><mfrac><mi>θ</mi><mn>2</mn></mfrac></mrow></mfrac></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mfrac><mn>1</mn><mrow><mi>tan</mi><mo>⁡</mo><mfrac><mi>θ</mi><mn>2</mn></mfrac></mrow></mfrac></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mfrac><mrow><mi>f</mi><mo>+</mo><mi>n</mi></mrow><mrow><mi>n</mi><mo>−</mo><mi>f</mi></mrow></mfrac></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mfrac><mrow><mn>2</mn><mi>f</mi><mi>n</mi></mrow><mrow><mi>n</mi><mo>−</mo><mi>f</mi></mrow></mfrac></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo>−</mo><mn>1</mn></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow></mrow><annotation encoding="application/x-tex">P = \begin{bmatrix} \frac{1}{a \tan \frac{\theta}{2}} &amp; 0 &amp; 0 &amp; 0 \\ 0 &amp; \frac{1}{\tan \frac{\theta}{2}} &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; \frac{f+n}{n-f} &amp; \frac{2fn}{n-f} \\ 0 &amp; 0 &amp; -1 &amp; 0 \end{bmatrix}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:.68333em;vertical-align:0"></span><span class="mord mathnormal" style="margin-right:.13889em">P</span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:5.637179999999999em;vertical-align:-2.5685899999999995em"></span><span class="minner"><span class="mopen"><span class="delimsizing mult"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.953995em"><span style="top:-1.3499850000000007em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎣</span></span></span><span style="top:-2.4999850000000006em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-3.0959850000000007em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-3.6919850000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-3.712975em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎢</span></span></span><span style="top:-4.953995em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎡</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.4500349999999997em"><span></span></span></span></span></span></span><span class="mord"><span class="mtable"><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:3.0685899999999995em"><span style="top:-5.223481999999999em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.845108em"><span style="top:-2.57398em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">a</span><span class="mspace mtight" style="margin-right:.19516666666666668em"></span><span class="mop mtight"><span class="mtight">t</span><span class="mtight">a</span><span class="mtight">n</span></span><span class="mspace mtight" style="margin-right:.19516666666666668em"></span><span class="mord mtight"><span class="mopen nulldelimiter sizing reset-size3 size6"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.8800285714285714em"><span style="top:-2.656em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight"><span class="mord mtight">2</span></span></span></span><span style="top:-3.2255000000000003em"><span class="pstrut" style="height:3em"></span><span class="frac-line mtight" style="border-bottom-width:.049em"></span></span><span style="top:-3.384em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:.02778em">θ</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.344em"><span></span></span></span></span></span><span class="mclose nulldelimiter sizing reset-size3 size6"></span></span></span></span></span><span style="top:-3.23em"><span class="pstrut" style="height:3em"></span><span class="frac-line" style="border-bottom-width:.04em"></span></span><span style="top:-3.394em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.6668199999999999em"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span><span style="top:-3.711554em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-2.112518em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-.7914100000000006em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.5685899999999995em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:3.0685899999999995em"><span style="top:-5.223481999999999em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-3.711554em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.845108em"><span style="top:-2.57398em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mop mtight"><span class="mtight">t</span><span class="mtight">a</span><span class="mtight">n</span></span><span class="mspace mtight" style="margin-right:.19516666666666668em"></span><span class="mord mtight"><span class="mopen nulldelimiter sizing reset-size3 size6"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.8800285714285714em"><span style="top:-2.656em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight"><span class="mord mtight">2</span></span></span></span><span style="top:-3.2255000000000003em"><span class="pstrut" style="height:3em"></span><span class="frac-line mtight" style="border-bottom-width:.049em"></span></span><span style="top:-3.384em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:.02778em">θ</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.344em"><span></span></span></span></span></span><span class="mclose nulldelimiter sizing reset-size3 size6"></span></span></span></span></span><span style="top:-3.23em"><span class="pstrut" style="height:3em"></span><span class="frac-line" style="border-bottom-width:.04em"></span></span><span style="top:-3.394em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.6668199999999999em"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span><span style="top:-2.112518em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-.7914100000000006em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.5685899999999995em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:3.0685899999999995em"><span style="top:-5.223481999999999em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-3.711554em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-2.112518em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.9322159999999999em"><span style="top:-2.6550000000000002em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">n</span><span class="mbin mtight">−</span><span class="mord mathnormal mtight" style="margin-right:.10764em">f</span></span></span></span><span style="top:-3.23em"><span class="pstrut" style="height:3em"></span><span class="frac-line" style="border-bottom-width:.04em"></span></span><span style="top:-3.446108em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:.10764em">f</span><span class="mbin mtight">+</span><span class="mord mathnormal mtight">n</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.481108em"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span><span style="top:-.7914100000000006em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">−</span><span class="mord">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.5685899999999995em"><span></span></span></span></span></span><span class="arraycolsep" style="width:.5em"></span><span class="arraycolsep" style="width:.5em"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:3.0685899999999995em"><span style="top:-5.223481999999999em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-3.711554em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span><span style="top:-2.112518em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.9322159999999999em"><span style="top:-2.6550000000000002em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">n</span><span class="mbin mtight">−</span><span class="mord mathnormal mtight" style="margin-right:.10764em">f</span></span></span></span><span style="top:-3.23em"><span class="pstrut" style="height:3em"></span><span class="frac-line" style="border-bottom-width:.04em"></span></span><span style="top:-3.446108em"><span class="pstrut" style="height:3em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">2</span><span class="mord mathnormal mtight" style="margin-right:.10764em">f</span><span class="mord mathnormal mtight">n</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.481108em"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span><span style="top:-.7914100000000006em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.5685899999999995em"><span></span></span></span></span></span></span></span><span class="mclose"><span class="delimsizing mult"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.953995em"><span style="top:-1.3499850000000007em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎦</span></span></span><span style="top:-2.4999850000000006em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-3.0959850000000007em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-3.6919850000000003em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-3.712975em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎥</span></span></span><span style="top:-4.953995em"><span class="pstrut" style="height:3.1550000000000002em"></span><span class="delimsizinginner delim-size4"><span>⎤</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.4500349999999997em"><span></span></span></span></span></span></span></span></span></span></span></span>
-4.  **MVP 矩阵 (Model-View-Projection Matrix, MVP)**
-    最终的 MVP 矩阵将对象坐标变换到裁剪坐标系：
-    <span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>M</mi><mi>V</mi><mi>P</mi><mo>=</mo><mi>P</mi><mo>⋅</mo><mi>V</mi><mo>⋅</mo><mi>M</mi></mrow><annotation encoding="application/x-tex">MVP = P \cdot V \cdot M</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:.68333em;vertical-align:0"></span><span class="mord mathnormal" style="margin-right:.10903em">M</span><span class="mord mathnormal" style="margin-right:.22222em">V</span><span class="mord mathnormal" style="margin-right:.13889em">P</span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:.68333em;vertical-align:0"></span><span class="mord mathnormal" style="margin-right:.13889em">P</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.68333em;vertical-align:0"></span><span class="mord mathnormal" style="margin-right:.22222em">V</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.68333em;vertical-align:0"></span><span class="mord mathnormal" style="margin-right:.10903em">M</span></span></span></span></span>
+
+    1. **模型矩阵 (Model Matrix, $M$)**
+   模型矩阵将对象坐标变换到世界坐标系。假设对象有一个平移变换和一个旋转变换，模型矩阵可以表示为：
+   $$
+   M = T \cdot R
+   $$
+   其中 $T$ 是平移矩阵，$R$ 是旋转矩阵。具体形式如下：
+
+   - 平移矩阵 $T$：
+     $$
+     T = \begin{bmatrix} 
+     1 & 0 & 0 & x \\ 
+     0 & 1 & 0 & y \\ 
+     0 & 0 & 1 & z \\ 
+     0 & 0 & 0 & 1 
+     \end{bmatrix}
+     $$
+
+   - 旋转矩阵 $R$（例如绕 $z$ 轴旋转）：
+     $$
+     R = \begin{bmatrix} 
+     \cos \theta & -\sin \theta & 0 & 0 \\ 
+     \sin \theta & \cos \theta & 0 & 0 \\ 
+     0 & 0 & 1 & 0 \\ 
+     0 & 0 & 0 & 1 
+     \end{bmatrix}
+     $$
+
+2. **视图矩阵 (View Matrix, $V$)**
+   视图矩阵将世界坐标变换到相机坐标系。假设相机位置为 $\mathbf{C} = (c_x, c_y, c_z)$，看向目标 $\mathbf{T} = (t_x, t_y, t_z)$，相机的上向量为 $\mathbf{U} = (u_x, u_y, u_z)$。
+   首先计算相机的三个基向量：
+
+   $$
+   \mathbf{z} = \frac{\mathbf{C} - \mathbf{T}}{|\mathbf{C} - \mathbf{T}|}
+   $$
+   $$
+   \mathbf{x} = \frac{\mathbf{U} \times \mathbf{z}}{|\mathbf{U} \times \mathbf{z}|}
+   $$
+   $$
+   \mathbf{y} = \mathbf{z} \times \mathbf{x}
+   $$
+
+   视图矩阵 $V$：
+   $$
+   V = \begin{bmatrix} 
+   x_x & x_y & x_z & -(\mathbf{x} \cdot \mathbf{C}) \\ 
+   y_x & y_y & y_z & -(\mathbf{y} \cdot \mathbf{C}) \\ 
+   z_x & z_y & z_z & -(\mathbf{z} \cdot \mathbf{C}) \\ 
+   0 & 0 & 0 & 1 
+   \end{bmatrix}
+   $$
+
+3. **投影矩阵 (Projection Matrix, $P$)**
+   投影矩阵将相机坐标系变换到裁剪坐标系。以透视投影为例，设视锥体的参数为近剪裁面 $n$，远剪裁面 $f$，视角 $\theta$，宽高比 $a$。
+
+   透视投影矩阵 $P$：
+   $$
+   P = \begin{bmatrix} 
+   \frac{1}{a \tan \frac{\theta}{2}} & 0 & 0 & 0 \\ 
+   0 & \frac{1}{\tan \frac{\theta}{2}} & 0 & 0 \\ 
+   0 & 0 & \frac{f+n}{n-f} & \frac{2fn}{n-f} \\ 
+   0 & 0 & -1 & 0 
+   \end{bmatrix}
+   $$
+
+4. **MVP 矩阵 (Model-View-Projection Matrix, $MVP$)**
+   最终的 $MVP$ 矩阵将对象坐标变换到裁剪坐标系：
+   $$
+   MVP = P \cdot V \cdot M
+   $$
 
     ## [#](#降低drawcall) 降低 drawCall
 
@@ -566,12 +920,12 @@ Lambertian模型描述的是理想的漫反射表面，即表面在各个方向�
 
 Lambertian反射的BRDF公式如下：
 
-$ f_r(\omega_i, \omega_o) = \frac{\rho}{\pi} $
+$f_r(\omega_i, \omega_o) = \frac{\rho}{\pi} $
 
 其中：
-- \( f_r \) 是BRDF。
-- \( \rho \) 是反射率（Albedo），表示表面反射光的比例。
-- \( \pi \) 是常数，保证能量守恒。
+- $f_r$是BRDF。
+- $\rho$是反射率（Albedo），表示表面反射光的比例。
+- $\pi$是常数，保证能量守恒。
 
 **3. 特点与应用**
 
@@ -598,25 +952,25 @@ Cook-Torrance模型的BRDF公式如下：
 \[ f_r(\omega_i, \omega_o) = \frac{D(h) \cdot F(\omega_i, h) \cdot G(\omega_i, \omega_o)}{4 (\omega_i \cdot n) (\omega_o \cdot n)} \]
 
 其中：
-- \( h = \frac{\omega_i + \omega_o}{\|\omega_i + \omega_o\|} \) 是半程向量。
-- \( D(h) \) 是法线分布函数（NDF），描述微表面法线的分布。
-- \( F(\omega_i, h) \) 是菲涅尔项，描述入射光在半程向量上的反射比例。
-- \( G(\omega_i, \omega_o) \) 是几何遮挡函数，描述微表面之间的遮挡关系。
-- \( n \) 是表面法线。
+- $h = \frac{\omega_i + \omega_o}{\|\omega_i + \omega_o\|}$是半程向量。
+- $D(h)$是法线分布函数（NDF），描述微表面法线的分布。
+- $F(\omega_i, h)$是菲涅尔项，描述入射光在半程向量上的反射比例。
+- $G(\omega_i, \omega_o)$是几何遮挡函数，描述微表面之间的遮挡关系。
+- $n$是表面法线。
 
 **3. 组成部分详解**
 
 - **法线分布函数（D）**：常用GGX（Trowbridge-Reitz）作为D函数，描述微表面法线的分布密度。
   
-  \[ D_{GGX}(h) = \frac{\alpha^2}{\pi \left[ (\omega \cdot h)^2 (\alpha^2 - 1) + 1 \right]^2} \]
+$$ D_{GGX}(h) = \frac{\alpha^2}{\pi \left[ (\omega \cdot h)^2 (\alpha^2 - 1) + 1 \right]^2} $$
   
-  其中，\( \alpha \) 表示粗糙度参数。
+  其中，$\alpha$表示粗糙度参数。
 
 - **菲涅尔项（F）**：使用Schlick近似公式计算：
 
-  \[ F(\omega_i, h) = F_0 + (1 - F_0) (1 - \omega_i \cdot h)^5 \]
+  $$ F(\omega_i, h) = F_0 + (1 - F_0) (1 - \omega_i \cdot h)^5 $$
   
-  其中，\( F_0 \) 是在法线方向上的菲涅尔反射率。
+  其中，$F_0$是在法线方向上的菲涅尔反射率。
 
 - **几何遮挡函数（G）**：常用Smith的几何遮挡函数：
 
@@ -627,7 +981,7 @@ Cook-Torrance模型的BRDF公式如下：
 **4. 特点与应用**
 
 - **物理准确性**：综合考虑了微表面法线分布、菲涅尔反射和几何遮挡，能够更真实地模拟镜面反射。
-- **可调节性**：通过调整粗糙度参数\( \alpha \)，可以控制高光的锐利程度和扩散程度。
+- **可调节性**：通过调整粗糙度参数$\alpha$，可以控制高光的锐利程度和扩散程度。
 - **广泛应用**：适用于金属和高光材质的渲染，能够表现出复杂的反射特性。
 
 **5. PBR中的作用**
@@ -649,8 +1003,8 @@ GGX模型的法线分布函数D如下：
 $D_{GGX}(h) = \frac{\alpha^2}{\pi \left[ (\omega \cdot h)^2 (\alpha^2 - 1) + 1 \right]^2}$
 
 其中：
-- $ \alpha $ 是粗糙度参数，控制法线分布的宽度。
-- $ \omega $ 是表面法线与半程向量$ h $的夹角余弦。
+- $\alpha $是粗糙度参数，控制法线分布的宽度。
+- $\omega $是表面法线与半程向量$h $的夹角余弦。
 
 **3. 特点与优势**
 
@@ -684,7 +1038,7 @@ GGX作为一种高效且物理准确的法线分布函数，成为PBR中常用�
   半程向量（Half-Vector）。定义为入射光方向与出射光方向的单位向量之和：
   $$
   h = \frac{\omega_i + \omega_o}{\|\omega_i + \omega_o\|}
-  $$  
+  $$
   半程向量表示入射光和出射光之间的对称轴方向。
 
 - **$n$**  
@@ -693,14 +1047,14 @@ GGX作为一种高效且物理准确的法线分布函数，成为PBR中常用�
 #### 2. 粗糙度与分布函数
 
 - **$\alpha$**  
-  粗糙度参数。控制表面的微观粗糙度，影响高光的扩散程度。$\alpha$ 越小，表面越光滑，高光越锐利；$\alpha$ 越大，表面越粗糙，高光越扩散。
+  粗糙度参数。控制表面的微观粗糙度，影响高光的扩散程度。$\alpha$越小，表面越光滑，高光越锐利；$\alpha$越大，表面越粗糙，高光越扩散。
 
 - **$D(h)$**  
   法线分布函数（Normal Distribution Function, NDF）。描述表面微法线在半程向量方向上的分布密度。GGX模型中的D函数定义为：
   $$
   D_{GGX}(h) = \frac{\alpha^2}{\pi \left[ (\omega \cdot h)^2 (\alpha^2 - 1) + 1 \right]^2}
-  $$  
-  其中，$\omega \cdot h$ 表示法线向量与半程向量的点积，反映了半程向量与表面法线的夹角。
+  $$
+  其中，$\omega \cdot h$表示法线向量与半程向量的点积，反映了半程向量与表面法线的夹角。
 
 #### 3. 菲涅尔项
 
@@ -708,11 +1062,11 @@ GGX作为一种高效且物理准确的法线分布函数，成为PBR中常用�
   菲涅尔反射项。描述入射光在半程向量方向上的反射比例。通常使用Schlick近似公式计算：
   $$
   F(\omega_i, h) = F_0 + (1 - F_0) (1 - \omega_i \cdot h)^5
-  $$  
-  其中，$F_0$ 是在法线方向上的菲涅尔反射率，表示当入射光与半程向量完全重合时的反射比例。
+  $$
+  其中，$F_0$是在法线方向上的菲涅尔反射率，表示当入射光与半程向量完全重合时的反射比例。
 
 - **$F_0$**  
-  菲涅尔反射率在法线方向上的值。对于非金属材质，通常由反射率（Albedo）决定；对于金属材质，$F_0$ 取决于金属的特性。
+  菲涅尔反射率在法线方向上的值。对于非金属材质，通常由反射率（Albedo）决定；对于金属材质，$F_0$取决于金属的特性。
 
 #### 4. 几何遮挡函数
 
@@ -720,29 +1074,29 @@ GGX作为一种高效且物理准确的法线分布函数，成为PBR中常用�
   几何遮挡函数（Geometry Function）。描述微表面之间的遮挡关系，考虑了入射光和出射光在表面微结构上的相互遮挡。通常使用Smith几何遮挡函数：
   $$
   G(\omega_i, \omega_o) = G_1(\omega_i) \cdot G_1(\omega_o)
-  $$  
-  其中，$G_1(\omega)$ 为单边几何遮挡函数。
+  $$
+  其中，$G_1(\omega)$为单边几何遮挡函数。
 
 - **$G_1(\omega)$**  
   单边几何遮挡函数。用于计算单个方向上的遮挡：
   $$
   G_1(\omega) = \frac{2 (\omega \cdot n)}{\omega \cdot n + \sqrt{\alpha^2 + (1 - \alpha^2)(\omega \cdot n)^2}}
-  $$  
-  这里，$\omega \cdot n$ 表示光线方向与表面法线的夹角余弦。
+  $$
+  这里，$\omega \cdot n$表示光线方向与表面法线的夹角余弦。
 
 #### 5. 渲染方程相关符号
 
 - **$f_r(\omega_i, \omega_o)$**  
-  双向反射分布函数（BRDF）。描述入射光方向 $\omega_i$ 和出射光方向 $\omega_o$ 之间的反射关系。Cook-Torrance模型中的BRDF公式为：
+  双向反射分布函数（BRDF）。描述入射光方向 $\omega_i$和出射光方向 $\omega_o$之间的反射关系。Cook-Torrance模型中的BRDF公式为：
   $$
   f_r(\omega_i, \omega_o) = \frac{D(h) \cdot F(\omega_i, h) \cdot G(\omega_i, \omega_o)}{4 (\omega_i \cdot n) (\omega_o \cdot n)}
   $$
 
 - **$L_o(x, \omega_o)$**  
-  出射辐射度。表示点 $x$ 朝向方向 $\omega_o$ 的出射光强度。
+  出射辐射度。表示点 $x$朝向方向 $\omega_o$的出射光强度。
 
 - **$L_i(x, \omega_i)$**  
-  入射辐射度。表示点 $x$ 朝向方向 $\omega_i$ 的入射光强度。
+  入射辐射度。表示点 $x$朝向方向 $\omega_i$的入射光强度。
 
 - **$(\omega_i \cdot n)$**  
   入射光方向与表面法线的夹角余弦。用于权衡入射光的有效性。
@@ -829,6 +1183,23 @@ public:
 
 
 ```
+
+
+## left value and right value (左值和右值)
+
+int `left value` = `right value`;
+
+The value we can find after the command have been excuted is `left value`, otherwise is `right value`.
+
+### left value(locator value)
+
+```C++
+// left value: this will change
+++x;
+// right value: this will not
+x++;
+```
+
     
     ## [#](#smart-pointers) smart pointers
 
@@ -1108,22 +1479,56 @@ public:
 
     # [#](#math) math
 
-    #### [#](#dot-product) dot product
+### 点乘（Dot Product）
 
-    <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>a</mi><mo separator="true">,</mo><mi>b</mi><mo stretchy="false">)</mo><mo>=</mo><msub><mi>a</mi><mi>x</mi></msub><mo>⋅</mo><msub><mi>b</mi><mi>x</mi></msub><mo>+</mo><msub><mi>a</mi><mi>y</mi></msub><mo>⋅</mo><msub><mi>b</mi><mi>y</mi></msub><mo>+</mo><msub><mi>a</mi><mi>z</mi></msub><mo>⋅</mo><msub><mi>b</mi><mi>z</mi></msub></mrow><annotation encoding="application/x-tex">(a,b) = a_x \cdot b_x + a_y \cdot b_y + a_z \cdot b_z</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-.25em"></span><span class="mopen">(</span><span class="mord mathnormal">a</span><span class="mpunct">,</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mord mathnormal">b</span><span class="mclose">)</span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:.59445em;vertical-align:-.15em"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.151392em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">x</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.84444em;vertical-align:-.15em"></span><span class="mord"><span class="mord mathnormal">b</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.151392em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">x</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">+</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.730558em;vertical-align:-.286108em"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.15139200000000003em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:.03588em">y</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.286108em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.980548em;vertical-align:-.286108em"></span><span class="mord"><span class="mord mathnormal">b</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.15139200000000003em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:.03588em">y</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.286108em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">+</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.59445em;vertical-align:-.15em"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.151392em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:.04398em">z</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.84444em;vertical-align:-.15em"></span><span class="mord"><span class="mord mathnormal">b</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.151392em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:.04398em">z</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span></span></span></span>
+点乘的公式如下：
 
-1.  Cosine of two vector.
-2.  Projection 用于将一个向量投影到另一个向量上。这在阴影贴图和计算一个向量沿另一个向量的方向的分量等操作中特别有用.
-3.  Backface culling: 背面剔除，通过计算观察方向与多边形表面法线之间的点积，可以确定多边形是面向相机还是背向相机。如果多边形背向，则可以在渲染过程中省略它，从而提高性能
+$(a, b) = a_x \cdot b_x + a_y \cdot b_y + a_z \cdot b_z$
 
-    #### [#](#cross-product) cross product
+点乘的应用：
 
-1.  表面法线计算：在 3D 图形中，叉积用于计算表面法线。渲染 3D 对象时，了解每个点的表面法线方向对于正确应用光照和着色效果至关重要。
-    一个多边形三个点<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mi>d</mi><mi>g</mi><mi>e</mi><mn>1</mn><mo>=</mo><mo stretchy="false">(</mo><mi>x</mi><mn>2</mn><mo>−</mo><mi>x</mi><mn>1</mn><mo separator="true">,</mo><mi>y</mi><mn>2</mn><mo>−</mo><mi>y</mi><mn>1</mn><mo separator="true">,</mo><mi>z</mi><mn>2</mn><mo>−</mo><mi>z</mi><mn>1</mn><mo stretchy="false">)</mo><mo separator="true">,</mo><mi>E</mi><mi>d</mi><mi>g</mi><mi>e</mi><mn>2</mn><mo>=</mo><mo stretchy="false">(</mo><mi>x</mi><mn>3</mn><mo>−</mo><mi>x</mi><mn>1</mn><mo separator="true">,</mo><mi>y</mi><mn>3</mn><mo>−</mo><mi>y</mi><mn>1</mn><mo separator="true">,</mo><mi>z</mi><mn>3</mn><mo>−</mo><mi>z</mi><mn>1</mn><mo stretchy="false">)</mo><mo separator="true">,</mo><mi>N</mi><mi>o</mi><mi>r</mi><mi>m</mi><mi>a</mi><mi>l</mi><mo>=</mo><mi>E</mi><mi>d</mi><mi>g</mi><mi>e</mi><mn>1</mn><mo>×</mo><mi>E</mi><mi>d</mi><mi>g</mi><mi>e</mi><mn>2</mn><mo>=</mo><mrow><mo fence="true">(</mo><mo stretchy="false">(</mo><msub><mi>y</mi><mn>2</mn></msub><mo>−</mo><msub><mi>y</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo stretchy="false">(</mo><msub><mi>z</mi><mn>3</mn></msub><mo>−</mo><msub><mi>z</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo>−</mo><mo stretchy="false">(</mo><msub><mi>z</mi><mn>2</mn></msub><mo>−</mo><msub><mi>z</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo stretchy="false">(</mo><msub><mi>y</mi><mn>3</mn></msub><mo>−</mo><msub><mi>y</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo separator="true">,</mo><mspace width="1em"><mo stretchy="false">(</mo><msub><mi>z</mi><mn>2</mn></msub><mo>−</mo><msub><mi>z</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo stretchy="false">(</mo><msub><mi>x</mi><mn>3</mn></msub><mo>−</mo><msub><mi>x</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo>−</mo><mo stretchy="false">(</mo><msub><mi>x</mi><mn>2</mn></msub><mo>−</mo><msub><mi>x</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo stretchy="false">(</mo><msub><mi>z</mi><mn>3</mn></msub><mo>−</mo><msub><mi>z</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo separator="true">,</mo><mspace width="1em"><mo stretchy="false">(</mo><msub><mi>x</mi><mn>2</mn></msub><mo>−</mo><msub><mi>x</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo stretchy="false">(</mo><msub><mi>y</mi><mn>3</mn></msub><mo>−</mo><msub><mi>y</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo>−</mo><mo stretchy="false">(</mo><msub><mi>y</mi><mn>2</mn></msub><mo>−</mo><msub><mi>y</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo stretchy="false">(</mo><msub><mi>x</mi><mn>3</mn></msub><mo>−</mo><msub><mi>x</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo fence="true">)</mo></mrow></mrow><annotation encoding="application/x-tex">Edge1 = (x2-x1,y2-y1,z2-z1), Edge2 = (x3-x1,y3-y1,z3-z1), Normal = Edge1 \times Edge2 = \left( (y_2 - y_1)(z_3 - z_1) - (z_2 - z_1)(y_3 - y_1), \quad (z_2 - z_1)(x_3 - x_1) - (x_2 - x_1)(z_3 - z_1),\quad (x_2 - x_1)(y_3 - y_1) - (y_2 - y_1)(x_3 - x_1) \right)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:.8888799999999999em;vertical-align:-.19444em"></span><span class="mord mathnormal" style="margin-right:.05764em">E</span><span class="mord mathnormal">d</span><span class="mord mathnormal" style="margin-right:.03588em">g</span><span class="mord mathnormal">e</span><span class="mord">1</span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-.25em"></span><span class="mopen">(</span><span class="mord mathnormal">x</span><span class="mord">2</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.8388800000000001em;vertical-align:-.19444em"></span><span class="mord mathnormal">x</span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="mord">2</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.8388800000000001em;vertical-align:-.19444em"></span><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="mord">2</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-.25em"></span><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="mord">1</span><span class="mclose">)</span><span class="mpunct">,</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mord mathnormal" style="margin-right:.05764em">E</span><span class="mord mathnormal">d</span><span class="mord mathnormal" style="margin-right:.03588em">g</span><span class="mord mathnormal">e</span><span class="mord">2</span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-.25em"></span><span class="mopen">(</span><span class="mord mathnormal">x</span><span class="mord">3</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.8388800000000001em;vertical-align:-.19444em"></span><span class="mord mathnormal">x</span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="mord">3</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.8388800000000001em;vertical-align:-.19444em"></span><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="mord">3</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-.25em"></span><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="mord">1</span><span class="mclose">)</span><span class="mpunct">,</span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mord mathnormal" style="margin-right:.10903em">N</span><span class="mord mathnormal">o</span><span class="mord mathnormal" style="margin-right:.02778em">r</span><span class="mord mathnormal">m</span><span class="mord mathnormal">a</span><span class="mord mathnormal" style="margin-right:.01968em">l</span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:.8888799999999999em;vertical-align:-.19444em"></span><span class="mord mathnormal" style="margin-right:.05764em">E</span><span class="mord mathnormal">d</span><span class="mord mathnormal" style="margin-right:.03588em">g</span><span class="mord mathnormal">e</span><span class="mord">1</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">×</span><span class="mspace" style="margin-right:.2222222222222222em"></span></span><span class="base"><span class="strut" style="height:.8888799999999999em;vertical-align:-.19444em"></span><span class="mord mathnormal" style="margin-right:.05764em">E</span><span class="mord mathnormal">d</span><span class="mord mathnormal" style="margin-right:.03588em">g</span><span class="mord mathnormal">e</span><span class="mord">2</span><span class="mspace" style="margin-right:.2777777777777778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:.2777777777777778em"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-.25em"></span><span class="minner"><span class="mopen delimcenter" style="top:0">(</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.03588em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.03588em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.04398em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.04398em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.04398em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.04398em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.03588em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.03588em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mpunct">,</span><span class="mspace" style="margin-right:1em"></span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.04398em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.04398em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.04398em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal" style="margin-right:.04398em">z</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.04398em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mpunct">,</span><span class="mspace" style="margin-right:1em"></span><span class="mspace" style="margin-right:.16666666666666666em"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.03588em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.03588em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.03588em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal" style="margin-right:.03588em">y</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:-.03588em;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mbin">−</span><span class="mspace" style="margin-right:.2222222222222222em"></span><span class="mord"><span class="mord mathnormal">x</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:.30110799999999993em"><span style="top:-2.5500000000000003em;margin-left:0;margin-right:.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:.15em"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mclose delimcenter" style="top:0">)</span></span></span></span></span>
-2.  方向和旋转：叉积有助于确定场景中对象或摄像机视图旋转所围绕的轴。通过找到垂直于给定平面或方向的向量，它可以帮助建立变换对象的旋转矩阵。
-3.  动画和绑定：在角色绑定和动画中，叉积可用于确保关节和肢体以正确且真实的方式移动，特别是在设置移动约束以保持方向时。
-4.  碰撞检测：叉积可以帮助确定 3D 空间中物体的相对方向，这在物理计算和碰撞检测系统中非常有用。
-5.  UV 映射：对于 3D 模型上的纹理，叉积有助于生成或调整纹理坐标，确保纹理与对象的表面正确对齐
+1. **角度计算**：点乘可以用于计算两个向量之间的夹角。
+2. **投影**：用于将一个向量投影到另一个向量上，在阴影映射和计算向量沿其他向量的分量中有用。
+3. **背面剔除（Backface Culling）**：通过观察方向和多边形表面法线的点积，可以判断多边形是否背向相机，如果是，则可以跳过渲染以提高性能。
+
+### 叉乘（Cross Product）
+
+叉乘的应用：
+
+1. **表面法线计算**：在 3D 图形中，叉积用于计算表面法线。渲染 3D 对象时，了解每个点的法线方向对于正确应用光照和着色效果至关重要。例如，一个三角形的三个点可以通过计算边向量的叉积来得到法线：
+
+   $ \text{Edge1} = (x_2 - x_1, y_2 - y_1, z_2 - z_1) $
+
+   $ \text{Edge2} = (x_3 - x_1, y_3 - y_1, z_3 - z_1) $
+
+   $ \text{Normal} = \text{Edge1} \times \text{Edge2} $
+
+2. **方向和旋转**：叉积帮助确定对象或摄像机视图的旋转轴。通过生成垂直于给定平面的向量，它可以帮助建立变换对象的旋转矩阵。
+3. **动画和绑定**：在角色绑定和动画中，叉积确保关节和肢体以正确的方向移动，特别是设置移动约束时。
+4. **碰撞检测**：叉积帮助确定物体在 3D 空间中的相对方向，在物理计算和碰撞检测系统中十分有用。
+5. **UV 映射**：对于 3D 模型上的纹理，叉积帮助生成或调整纹理坐标，确保纹理正确地与对象表面对齐。
+
+### 四元数在图形学中的作用
+
+1. **避免万向锁（Gimbal Lock）**：欧拉角旋转容易遇到万向锁问题，使得自由度受限。而四元数通过更直接的旋转表示，避免了这个问题。
+
+2. **插值（Slerp 插值）**：四元数在旋转插值（Spherical Linear Interpolation, Slerp）中非常流畅且稳定，适合平滑过渡和动画效果。
+
+3. **计算效率**：四元数表示旋转只需四个数（四元数的四个分量），在复合旋转时计算开销小于矩阵运算，适合实时渲染。
+
+4. **稳定性**：四元数不会因旋转叠加而累积误差，从而避免旋转的变形问题，特别适合需要频繁旋转的场景，如角色控制和摄像机旋转。
+
+### 四元数的旋转公式
+
+给定一个向量 $v$ 和单位四元数 $q$，通过四元数旋转得到的旋转向量 $v'$ 表达式为：
+
+$$
+v' = qvq^*
+$$
+
+其中 $q^*$ 为 $q$ 的共轭四元数。这种方式通过四元数的乘法实现旋转，无需构造旋转矩阵。
+
+
 
     # [#](#ue5) UE5
 
@@ -1813,3 +2218,19 @@ DOTAFS
 *   <div class="breadcrumb"></div><span>[CS5310-learning-notes](/2024/05/08/CS5310-learning-notes/ "CS5310-learning-notes")</span>
 *   <div class="breadcrumb">[projects](/categories/projects/ "In projects")</div><span>[deferred rendering + ggx](/2024/03/27/deferred-rendering-ggx/ "deferred rendering + ggx")</span></div></div><div class="status"><div class="copyright">&copy; 2023 – <span itemprop="copyrightYear">2024</span> <span class="with-love"> </span><span class="author" itemprop="copyrightHolder">DOTAFS @ DOTAFS</span></div><div class="powered-by">Powered by <span class="exturl" data-url="aHR0cHM6Ly9oZXhvLmlv">Hexo</span> & Theme.<span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL2FtZWhpbWUvaGV4by10aGVtZS1zaG9rYQ==">Shoka</span></div></div></div></footer></div><script data-config type="text/javascript">var LOCAL={path:"2024/05/11/interview-script/",favicon:{show:"（●´3｀●）Goooood",hide:"(´Д｀)Booooom"},search:{placeholder:"Search for Posts",empty:"We didn't find any results for the search: ${query}",stats:"${hits} results found in ${time} ms"},valine:!0,fancybox:!0,copyright:'Copied to clipboard successfully! 
  All articles in this blog are licensed under BY-NC-SA.',ignores:[function(e){return e.includes("#")},function(e){return new RegExp(LOCAL.path+"$").test(e)}]}</script><script src="https://cdn.polyfill.io/v2/polyfill.js"></script><script src="//cdn.jsdelivr.net/combine/npm/pace-js@1.0.2/pace.min.js,npm/pjax@0.2.8/pjax.min.js,npm/whatwg-fetch@3.4.0/dist/fetch.umd.min.js,npm/animejs@3.2.0/lib/anime.min.js,npm/algoliasearch@4/dist/algoliasearch-lite.umd.js,npm/instantsearch.js@4/dist/instantsearch.production.min.js,npm/lozad@1/dist/lozad.min.js,npm/quicklink@2/dist/quicklink.umd.js"></script><script src="/js/app.js?v=0.2.5"></script></body></html>
+
+
+# 算法
+
+## 排序
+
+### Bubble sort
+相邻元素两两比较，大的交换到后面，逐步将最大的数移到末尾
+
+### Selection Sort
+每次从未排序部分中选择最小的元素，放到已排序部分的末尾。
+
+
+### Insertion Sort
+从未排序部分中取出一个元素，插入到已排序部分的合适位置
+
